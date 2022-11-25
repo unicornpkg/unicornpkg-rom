@@ -1,0 +1,107 @@
+--- GLOBAL VARIABLES ---
+local json -- json API
+local config -- variable where the config will be loaded
+local defaultConfig = { -- default config, feel free to change it
+    ["version"] = 1.2,
+    ["serverIP"] = "infinity.mineaurion.com",
+    ["sides"] = {"back", "front", "left", "right", "bottom", "top"}
+}
+
+--- INIT ---
+local function init()
+    -- load json API
+    if not fs.exists("json") or fs.exists("json.lua") or fs.exists("rom/modules/main/json.lua") or fs.exists("rom/modules/main/json.lua") then
+        local f = fs.open("json.lua", "w")
+        local str = http.get("https://raw.githubusercontent.com/DaikiKaminari/CC-Libs/master/ObjectJSON/json.lua").readAll()
+        f.write(str)
+        f.close()
+    end
+    json = require("json")
+    -- Check if config file exists, otherwise create it
+    if not fs.exists("config.json") then
+        config = defaultConfig
+        -- Reset display
+        term.clear()
+        term.setCursorPos(1, 1)
+        -- Input
+        config["name"] = {}
+        print("Entrez les pseudos a detecter (appuyer sur entrer pour l'ajout) :")
+        local input
+        repeat
+            input = io.read()
+            if input ~= "" then
+                table.insert(config["name"], input)
+            end
+        until input==""
+        -- Write
+        local str = json.encodePretty(config)
+        assert(str and str ~= "", "Encoding of the config went wrong.")
+        local file = fs.open("/config.json", "w")
+        file.write(str)
+        file.close()
+    end
+    -- Read config file and check version
+    config = json.decodeFromFile("/config.json")
+    if config["version"] < defaultConfig["version"] then
+        shell.run("rm config.json")
+        os.reboot()
+    end
+    print("\nDetecte les joueurs : " .. textutils.serialise(config["name"]))
+    print("Sur le serveur : " .. config["serverIP"])
+    print("\nEmet de la redstone quand un des joueur est connecte, sinon non.")
+    print("Pour couper un spawner il faut inverser le signal.")
+end
+
+
+--- UTILS ---
+local function has_value(tab, val)
+    for index,value in pairs(tab) do
+      if value == val then
+        return true
+       end
+     end
+     return false
+  end
+
+
+--- FUNCTIONS ---
+-- Returns true if the player is connected, false otherwise
+local function arePlayersConnected(players, serverID)
+    local str = http.get("https://api.mineaurion.com/v1/serveurs/" .. config["serverIP"]).readAll()
+    local obj = json.decode(str)
+    local joueurs = obj["joueurs"]
+    if not joueurs or not next(joueurs) then
+        return false
+    end
+    for _,player in pairs(players) do
+        if has_value(joueurs, player) then
+            return true
+        end
+    end
+    return false
+end
+
+-- Send or cut the redstone signal on all defined sides
+local function actualizeRedstone(boolean_signal)
+    if boolean_signal then
+        for _,side in pairs(config["sides"]) do
+            rs.setOutput(side, true)
+        end
+    else
+        for _,side in pairs(config["sides"]) do
+            rs.setOutput(side, false)
+        end
+    end
+end
+
+
+--- MAIN ---
+local function main()
+    init()
+    while true do
+        actualizeRedstone(arePlayersConnected(config["name"], config["serverIP"]))
+        sleep(30)
+    end
+end
+
+main()

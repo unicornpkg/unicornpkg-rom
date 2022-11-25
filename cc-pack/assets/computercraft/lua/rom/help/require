@@ -1,0 +1,32 @@
+Implementation of require which is natively available in newer versions of CC : https://wiki.computercraft.cc/Require
+Author and repo of this implementation : https://github.com/oddstr13/cc-require
+
+Description : This method permits to load a library efficiently and can be called multiple times without causing any problem and has better performances compared to os.loadAPI()
+
+Signature : require(<path to the library to load>) - the argument should be a string without extension
+
+Usage :
+local myLib = require("myLib")
+myLib.foo()
+
+
+Wonder how to create a library ? There is a simple pattern of what a library may look like :
+
+local lib = {}
+
+local function foo()
+    print("Test of my library method !")
+end
+lib.foo = foo
+
+return lib
+
+OR
+
+local lib = {}
+
+local function lib.foo()
+    print("Test of my library method !")
+end
+
+return lib
